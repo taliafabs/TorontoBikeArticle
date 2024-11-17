@@ -4,7 +4,7 @@ author: "Talia Fabregas"
 format: html
 ---
 
-```{r}
+```{r, echo=FALSE, message=FALSE, warning=FALSE, include=FALSE}
 library(dplyr)
 
 # Load the data
@@ -44,19 +44,24 @@ bike_thefts_sf <- read_sf("data/Bicycle_Thefts_Open_Data.geojson") |>
 
 bike_parking_sf <- read_sf("data/bike_parking_map_data.geojson")
 
+# toronto neighbourhoods map data
 toronto_neighbourhoods_shp <- st_read("data/Neighbourhoods - 4326/Neighbourhoods - 4326.shp")
+
+# police divisions map data
+police_divisions_shp <- st_read("data/PoliceBoundariesData-4326/Police Boundaries Data - 4326.shp")
 ```
 
 ```{r, include=FALSE, echo=FALSE, warning=FALSE, message=FALSE}
 
 # only include recent years
 bike_thefts_clean <- bike_thefts_csv |>
-  filter(REPORT_YEAR >= 2014 & REPORT_YEAR <= 2023)
+  filter(REPORT_YEAR >= 2014 & REPORT_YEAR <= 2023 & !is.na(NEIGHBOURHOOD_158))
 
-bike_thefts_clean
+bike_thefts_sf <- bike_thefts_sf |>
+  filter(REPORT_YEAR >= 2014 & REPORT_YEAR <= 2023 & !is.na(NEIGHBOURHOOD_158))
 ```
 
-```{r}
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
 year_month_summary <- bike_thefts_clean %>%
   group_by(REPORT_YEAR, OCC_MONTH) %>%
   summarise(Total_Thefts = n_distinct(OBJECTID), .groups = "drop")
@@ -65,10 +70,32 @@ report_summary <- year_month_summary %>%
   group_by(REPORT_YEAR) %>%
   summarise(YEARLY_TOTAL = sum(Total_Thefts))
 
-report_summary
+neighbourhood_counts <- bike_thefts_sf |>
+  group_by(NEIGHBOURHOOD_158) |>
+  summarise(num_thefts = n_distinct(OBJECTID),
+            lat = mean(LAT_WGS84),
+            long = mean(LONG_WGS84),
+            .groups="drop")
+
+division_counts <- bike_thefts_sf |>
+  group_by(DIVISION) |>
+  summarise(num_thefts = n_distinct(OBJECTID),
+            .groups="drop")
+
+# neighbourhood_counts
+# neighbourhood_co <- neighborhoods
+# 
+# neighbourhood_data_complete <- st_join(neighbourhood_co, neighbourhood_counts, by = "NEIGHBOURHOOD_158")
+# police_divisions_tibble <- as.tibble(police_divisions_shp)
+#   # st_transform(police_divisions_shp, crs = st_crs(division_counts))
+# division_counts_tibble <- as.tibble(division_counts_shp)
+# 
+# 
+# police_divisions_joined <- police_divisions_shp %>%
+#   st_join(division_counts, by = c("DIV" = "DIVISION"))
 ```
 
-```{r}
+```{r, echo=FALSE, include=FALSE, message=FALSE, warning=FALSE}
 # Load necessary libraries
 library(sf)
 library(ggplot2)
@@ -93,9 +120,123 @@ parking_density <- bike_parking_sf %>%
 #   addPolygons(weight=1.2, fillOpacity=0.3, color="black")
 ```
 
-# Areas with Higher Bike Volumes Saw More Bike Thefts in 2023
+# Trends in Toronto bike thefts from 2014-2023
+
+The number of reported bike thefts in Toronto has not changed dramatically over the last decade. Bike thefts peaked in 2019 and slowly decreased between 2019 and 2023. Throughout the years, we can see that most bike thefts take place at a residence (house or apartment) or when a bike is left outside. Very few bike thefts took place at transit stations, educational buildings, and commercial buildings.
+
+More Toronto residents live in houses than detached homes, so this does not necessarily mean that cyclists who live in an apartment are at a higher risk of having their bike stolen than cyclists who live in a house.
+
+No significant changes or new trends in Toronto bike thefts have emerged over the past decade.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+thefts_summary <- bike_thefts_clean %>%
+  group_by(REPORT_YEAR, PREMISES_TYPE) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  mutate(proportion = count / sum(count)) %>%
+  mutate(percentage = (count / sum(count)) * 100)
+
+thefts_per_year <- thefts_summary %>%
+  group_by(REPORT_YEAR) %>%
+  summarise(total_thefts = sum(count), .groups = "drop")
+
+
+# Plot the line graph showing the total number of thefts per year
+ggplot(thefts_per_year, aes(x = REPORT_YEAR, y = total_thefts)) +
+  geom_line(color = "steelblue", size = 1) +  # Line graph
+  geom_point(color = "steelblue", size = 2) +   # Points for each year
+  labs(
+    title = "Number of Bike Thefts in Toronto (2014-2023)",
+    x = "Year",
+    y = "Total Thefts"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 16),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  ) +
+  scale_y_continuous(limits = c(0, 4500)) 
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+
+thefts_summary$PREMISES_TYPE <- factor(
+  thefts_summary$PREMISES_TYPE,
+  levels = c("Other", "Transit", "Educational", "Commercial", "Outside", "House", "Apartment" )# Adjust as needed
+)
+
+custom_colors <- c("#8dd3c7", "#ffffb3", "#bebada", "#fb8072", "#80b1d3", "#fdb462", "#b3de69")
+
+ggplot(thefts_summary, aes(x = REPORT_YEAR, y = count, fill = PREMISES_TYPE)) +
+  geom_bar(stat = "identity", position = "stack") +
+  scale_fill_manual(name = "Premise Type", values = custom_colors) +
+  labs(
+    title = "Bike Thefts by Year and Premise Type (2014-2023)",
+    x = "Year",
+    y = "Percentage of Thefts"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 16),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  ) 
+
+
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+
+thefts_summary <- thefts_summary %>%
+  group_by(REPORT_YEAR) %>%
+  mutate(total_thefts = sum(count),  # Total number of thefts for the year
+         percentage = (count / total_thefts)) %>%  # Calculate percentage
+  ungroup() %>%  # Remove grouping
+  mutate(REPORT_YEAR = factor(REPORT_YEAR, levels = sort(unique(REPORT_YEAR))))
+
+# Plot the percentages in stacked bars
+ggplot(thefts_summary, aes(x = REPORT_YEAR, y = percentage, fill = PREMISES_TYPE)) +
+  geom_bar(stat = "identity", position = "stack") +
+  scale_fill_manual(name = "Premise Type", values = custom_colors) +
+  labs(
+    title = "On What Premises did Bike Thefts Occur?",
+    x = "Year",
+    y = "Percentage of Thefts"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 16),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  ) +
+  scale_y_continuous(labels = scales::percent)  
+```
+
+# What Toronto neighborhoods and places have bike thieves targeted since 2014?
+
+City built designated bike parking in areas with more cyclists.
+
+## Neighborhoods
 
 ```{r}
+# join the geo json data with the neighborhood 4326 shape file
+# 
+ggplot() +
+  # Add neighborhood polygons
+  geom_sf(data = toronto_neighbourhoods_shp, fill = "lightgray", color = "black", size = 0.3, alpha = 0.3) +
+  # Add bike parking locations
+  geom_sf(data = bike_parking_sf, color = "steelblue", size = sqrt(bike_parking_sf$BICYCLE_CAPACITY), alpha = 0.4) +
+  # Set a minimal theme
+  theme_minimal() +
+    theme(
+    panel.grid = element_blank(),  # Remove grid lines
+    panel.background = element_blank(),
+    axis.text = element_blank(),  # Remove axis text
+    axis.ticks = element_blank(),  # Remove axis ticks
+    axis.title = element_blank() 
+  ) +
+  # Optionally set a title
+  ggtitle("City of Toronto Designated Bike Parking Locations")
+```
+
+```{r, include=TRUE, echo=FALSE, warning=FALSE, message=FALSE}
 library(leaflet)
 library(dplyr)
 
@@ -107,17 +248,17 @@ bike_parking_df <- bike_parking_sf %>%
   bind_cols(bike_parking_sf)  # Combine the coordinates with the original data
 
 # Plot the map with bike parking location dots
-leaflet(toronto_neighbourhoods_shp) %>%
+leaflet(police_divisions_shp) %>%
   addProviderTiles('CartoDB.Positron') %>%
   # Add the neighborhood polygons
-  addPolygons(weight = 1.2, fillOpacity = 0.3, color = "gray") %>%
+  addPolygons(weight = 1.2, fillOpacity = 0.1, color = "gray") %>%
   # Add the bike parking location dots
   addCircleMarkers(
     data = bike_parking_df,  # Use the data frame with coordinates
     lng = ~X, lat = ~Y,  # Specify longitude (X) and latitude (Y)
-    radius = 4,
-    color = "magenta",  # Color of the dot
-    fillColor = "magenta",  # Fill color
+    radius = sqrt(bike_parking_df$BICYCLE_CAPACITY),
+    color = "steelblue",  # Color of the dot
+    fillColor = "steelblue",  # Fill color
     fillOpacity = 0.7,  # Opacity of the fill,
     stroke = FALSE  # No border for the dots
     # Replace with the correct attribute
@@ -125,8 +266,24 @@ leaflet(toronto_neighbourhoods_shp) %>%
 
 ```
 
-## 
+```{r}
+ggplot() +
+  # Add neighborhood polygons
+  geom_sf(data = toronto_neighbourhoods_shp, fill = "gray", color = "black", size = 0.3, alpha = 0.3) +
+  # # Add bike parking locations
+  # geom_sf(data = bike_thefts_sf, color = "pink", size = 2, alpha = 0.3) +
+  # Set a minimal theme
+  theme_minimal() +
+  # Optionally set a title
+  ggtitle("Toronto Neighborhoods and Bike Theft Locations Locations")
+```
 
-type here
+## Premises
+
+## Timing
+
+# Trends in Areas with Most Bike Thefts
+
+# Risks and Conclusions
 
 type here
