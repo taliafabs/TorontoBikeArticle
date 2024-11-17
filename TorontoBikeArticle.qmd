@@ -1,13 +1,13 @@
 ---
-title: "Avoid Leaving Your Bike in these Areas"
+title: "Bike Thefts are not on the Rise in Toronto, but if you live in one of these areas a bike lock may be a great investment"
 author: "Talia Fabregas"
 format: html
 ---
 
-load the data here
-
 ```{r}
 library(dplyr)
+
+# Load the data
 knitr::opts_chunk$set(echo=FALSE, include=TRUE, eval=TRUE)
 required_packages <- c(
   "lubridate", "sf", "tidyverse"
@@ -43,6 +43,8 @@ bike_thefts_sf <- read_sf("data/Bicycle_Thefts_Open_Data.geojson") |>
   )
 
 bike_parking_sf <- read_sf("data/bike_parking_map_data.geojson")
+
+toronto_neighbourhoods_shp <- st_read("data/Neighbourhoods - 4326/Neighbourhoods - 4326.shp")
 ```
 
 ```{r, include=FALSE, echo=FALSE, warning=FALSE, message=FALSE}
@@ -50,9 +52,80 @@ bike_parking_sf <- read_sf("data/bike_parking_map_data.geojson")
 # only include recent years
 bike_thefts_clean <- bike_thefts_csv |>
   filter(REPORT_YEAR >= 2014 & REPORT_YEAR <= 2023)
+
+bike_thefts_clean
 ```
 
-## Heading2 
+```{r}
+year_month_summary <- bike_thefts_clean %>%
+  group_by(REPORT_YEAR, OCC_MONTH) %>%
+  summarise(Total_Thefts = n_distinct(OBJECTID), .groups = "drop")
+
+report_summary <- year_month_summary %>%
+  group_by(REPORT_YEAR) %>%
+  summarise(YEARLY_TOTAL = sum(Total_Thefts))
+
+report_summary
+```
+
+```{r}
+# Load necessary libraries
+library(sf)
+library(ggplot2)
+library(dplyr)
+library(leaflet)
+
+# Ensure the bike parking data is loaded as an sf object
+# Replace "bike_parking_map_data.geojson" with your actual file path
+bike_parking_sf <- st_read("data/bike_parking_map_data.geojson")
+
+# Aggregate parking density by area (e.g., neighborhoods)
+parking_density <- bike_parking_sf %>%
+  group_by(POSTAL_CODE) %>%
+  summarize(total_parking_capacity = sum(BICYCLE_CAPACITY, na.rm = TRUE))
+
+
+# fill will show the number of bike thefts in that neighborhood in 2023
+# add dots to show where the bike parkings are located
+# toronto_neighbourhoods_shp %>%
+#   leaflet() %>%
+#   addProviderTiles('CartoDB.Positron') %>%
+#   addPolygons(weight=1.2, fillOpacity=0.3, color="black")
+```
+
+# Areas with Higher Bike Volumes Saw More Bike Thefts in 2023
+
+```{r}
+library(leaflet)
+library(dplyr)
+
+# Convert the sf object to a data.frame
+bike_parking_df <- bike_parking_sf %>%
+  st_transform(crs = 4326) %>%  # Ensure it's in the correct coordinate reference system (WGS 84)
+  st_coordinates() %>%  # Extract coordinates
+  as.data.frame() %>%
+  bind_cols(bike_parking_sf)  # Combine the coordinates with the original data
+
+# Plot the map with bike parking location dots
+leaflet(toronto_neighbourhoods_shp) %>%
+  addProviderTiles('CartoDB.Positron') %>%
+  # Add the neighborhood polygons
+  addPolygons(weight = 1.2, fillOpacity = 0.3, color = "gray") %>%
+  # Add the bike parking location dots
+  addCircleMarkers(
+    data = bike_parking_df,  # Use the data frame with coordinates
+    lng = ~X, lat = ~Y,  # Specify longitude (X) and latitude (Y)
+    radius = 4,
+    color = "magenta",  # Color of the dot
+    fillColor = "magenta",  # Fill color
+    fillOpacity = 0.7,  # Opacity of the fill,
+    stroke = FALSE  # No border for the dots
+    # Replace with the correct attribute
+  )
+
+```
+
+## 
 
 type here
 
