@@ -1,5 +1,6 @@
 ---
 title: "Bike Thefts are not on the Rise in Toronto, but if you live in one of these areas a bike lock may be a great investment"
+subtitle: "Tips for Toronto Cyclists to Prevent Bike Thefts"
 author: "Talia Fabregas"
 format: html
 ---
@@ -142,8 +143,10 @@ thefts_per_year <- thefts_summary %>%
 
 # Plot the line graph showing the total number of thefts per year
 ggplot(thefts_per_year, aes(x = REPORT_YEAR, y = total_thefts)) +
-  geom_line(color = "steelblue", size = 1) +  # Line graph
-  geom_point(color = "steelblue", size = 2) +   # Points for each year
+  geom_line(color = "#980043", size = 1) +  # Line graph
+  geom_point(color = "#980043", size = 2) +   # Points for each year
+  geom_hline(yintercept = 3499, linetype = "dashed", color = "#333335", size = 1) + 
+    annotate("text", x = 2021, y = 3650, label = "Average: 3499", color = "#333335", size = 4, hjust = 0) + # Annotation
   labs(
     title = "Number of Bike Thefts in Toronto (2014-2023)",
     x = "Year",
@@ -164,27 +167,6 @@ thefts_summary$PREMISES_TYPE <- factor(
   levels = c("Other", "Transit", "Educational", "Commercial", "Outside", "House", "Apartment" )# Adjust as needed
 )
 
-custom_colors <- c("#8dd3c7", "#ffffb3", "#bebada", "#fb8072", "#80b1d3", "#fdb462", "#b3de69")
-
-ggplot(thefts_summary, aes(x = REPORT_YEAR, y = count, fill = PREMISES_TYPE)) +
-  geom_bar(stat = "identity", position = "stack") +
-  scale_fill_manual(name = "Premise Type", values = custom_colors) +
-  labs(
-    title = "Bike Thefts by Year and Premise Type (2014-2023)",
-    x = "Year",
-    y = "Percentage of Thefts"
-  ) +
-  theme_minimal() +
-  theme(
-    plot.title = element_text(hjust = 0.5, size = 16),
-    axis.text.x = element_text(angle = 45, hjust = 1)
-  ) 
-
-
-```
-
-```{r, echo=FALSE, warning=FALSE, message=FALSE}
-
 thefts_summary <- thefts_summary %>%
   group_by(REPORT_YEAR) %>%
   mutate(total_thefts = sum(count),  # Total number of thefts for the year
@@ -192,12 +174,35 @@ thefts_summary <- thefts_summary %>%
   ungroup() %>%  # Remove grouping
   mutate(REPORT_YEAR = factor(REPORT_YEAR, levels = sort(unique(REPORT_YEAR))))
 
-# Plot the percentages in stacked bars
-ggplot(thefts_summary, aes(x = REPORT_YEAR, y = percentage, fill = PREMISES_TYPE)) +
+custom_colors <- c("#8dd3c7", "#ffffb3", "#bebada", "#fb8072", "#80b1d3", "#fdb462", "#b3de69")
+
+ggplot(thefts_summary, aes(x = REPORT_YEAR, y = count, fill = PREMISES_TYPE)) +
   geom_bar(stat = "identity", position = "stack") +
   scale_fill_manual(name = "Premise Type", values = custom_colors) +
   labs(
-    title = "On What Premises did Bike Thefts Occur?",
+    title = "Toronto Bike Thefts by Year and Premise Type",
+    x = "Year",
+    y = "Number of Bike Thefts"
+  ) +
+  # geom_hline(yintercept = 3499, linetype = "dashed", color = "#333335", size = 1) + 
+  # annotate("text", x = 2021, y = 3650, label = "Average: 3499", color = "#333335", size = 4, hjust=0) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 16),
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  ) 
+```
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+
+# Plot the percentages in stacked bars
+ggplot(thefts_summary, aes(x = REPORT_YEAR, y = percentage, fill = PREMISES_TYPE)) +
+  geom_bar(stat = "identity", 
+           position = "stack") +
+  scale_fill_manual(name = "Premise Type", 
+                    values = custom_colors) +
+  labs(
+    title = "% of Toronto Bike Thefts by Premise Type",
     x = "Year",
     y = "Percentage of Thefts"
   ) +
@@ -209,31 +214,228 @@ ggplot(thefts_summary, aes(x = REPORT_YEAR, y = percentage, fill = PREMISES_TYPE
   scale_y_continuous(labels = scales::percent)  
 ```
 
-# What Toronto neighborhoods and places have bike thieves targeted since 2014?
+```{r}
+# will do this on tuesday if time allows
+# thefts_summary$PREMISES_TYPE <- factor(thefts_summary$PREMISES_TYPE, 
+#                                        levels = c("Apartment", "House", "Outside", "Commercial", "Educational", "Transit", "Other"))
+# 
+# 
+# plot_ly(thefts_summary, x = ~REPORT_YEAR, y = ~percentage, color = ~PREMISES_TYPE, 
+#         type = 'bar', 
+#         text = ~paste(PREMISES_TYPE, ": ", scales::percent(percentage, accuracy = 0.01), sep = ""),
+#         hoverinfo = 'text',
+#         scalegroup = ~REPORT_YEAR) %>%
+#   layout(
+#     title = "% of Toronto Bike Thefts by Premise Type",
+#     xaxis = list(title = "Year"),
+#     yaxis = list(title = "Percentage of Thefts", tickformat = ".0%"),
+#     barmode = 'stack',
+#     legend = list(title = list(text = "Premise Type")),
+#     colorway = custom_colors
+#   )
+```
+
+# What Toronto neighborhoods did bike thieves target?
 
 City built designated bike parking in areas with more cyclists.
 
 ## Neighborhoods
 
+The Toronto neighborhoods that had the most bike thefts between 2014 and 2023 are in the downtown core.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+
+neighbourhood_counts <- bike_thefts_sf |>
+  group_by(NEIGHBOURHOOD_158) |>
+  summarise(num_thefts = n_distinct(OBJECTID),
+            lat = mean(LAT_WGS84),
+            long = mean(LONG_WGS84),
+            .groups="drop") 
+
+top_10_neighbourhoods <- neighbourhood_counts %>%
+  arrange(desc(num_thefts)) %>%
+  slice_head(n = 10)
+
+top_10_neighbourhoods2 <- top_10_neighbourhoods
+
+top_10_neighbourhoods2$NEIGHBOURHOOD_158 <- gsub("\\s*\\(.*\\)", "", top_10_neighbourhoods2$NEIGHBOURHOOD_158)
+
+
+# ggplot(top_10_neighbourhoods2, aes(x = reorder(NEIGHBOURHOOD_158, num_thefts), y = num_thefts)) +
+#   geom_bar(stat = "identity", fill = "#980043") +
+#   coord_flip() +  # Flip the axes so the bars are horizontal
+#   labs(
+#     title = "Top 10 Toronto Neighbourhoods for Bike Thefts",
+#     x = "Neighborhood",
+#     y = "Number of Thefts 2014-2023"
+#   ) +
+#   theme_minimal() +
+#   theme(
+#     axis.text.x = element_text(angle = 45, hjust = 1),  # Rotate x-axis labels if necessary
+#     panel.grid = element_blank()  # Remove grid lines for a cleaner look
+#   )
+
+```
+
+Although we saw consistent trends in the breakdown of yearly bike thefts by premise type between 2014 and 2023 across the City of Toronto, different neighbourhoods have different high-theft premises. There is variation among the top 10. Most bike thefts in the Yonge-Bay corridor took place outside or by a commercial building; this makes sense because there are very few residential buildings in that area and many office buildings. It is likely the busiest area of Toronto
+
+```{r}
+#| echo: false
+#| warning: false
+#| message: false
+#| fig-label: fig-top10premises
+#| fig-cap: There are different premise type patterns among the top 10 Toronto neighbourhoods with the most bike thefts since 2014. The bars show the total number of bike thefts and the different colours within each bar show the number of bike thefts per premise type in that neighbourhood since 2014.
+#| fig-cap-location: bottom
+neighbourhood_counts2 <- bike_thefts_sf %>%
+  filter(NEIGHBOURHOOD_158 %in% top_10_neighbourhoods$NEIGHBOURHOOD_158) %>%
+  group_by(NEIGHBOURHOOD_158, PREMISES_TYPE) %>%
+  summarise(num_thefts = n_distinct(OBJECTID),  # Count distinct thefts
+            lat = mean(LAT_WGS84),               # Mean latitude for the neighborhood
+            long = mean(LONG_WGS84),             # Mean longitude for the neighborhood
+            .groups = "drop") %>%
+  group_by(NEIGHBOURHOOD_158) %>%
+  mutate(total_thefts = sum(num_thefts),  # Total thefts per neighborhood
+         percent_thefts = num_thefts / total_thefts * 100) %>%
+  ungroup()  # Remove grouping after calculation
+
+neighbourhood_counts2$NEIGHBOURHOOD_158 <- gsub("\\s*\\(.*\\)", "", neighbourhood_counts2$NEIGHBOURHOOD_158)
+
+neighbourhood_counts2$PREMISES_TYPE <- factor(
+  neighbourhood_counts2$PREMISES_TYPE,
+  levels = c("Other", "Transit", "Educational", "Commercial", "Outside", "House", "Apartment" )# Adjust as needed
+)
+
+custom_colors <- c("#8dd3c7", "#ffffb3", "#bebada", "#fb8072", "#80b1d3", "#fdb462", "#b3de69")
+
+
+ggplot(neighbourhood_counts2, aes(x = reorder(NEIGHBOURHOOD_158, num_thefts), y = num_thefts, fill = PREMISES_TYPE)) +
+  geom_bar(stat = "identity", position="stack") +  # Bar plot where height of bars corresponds to num_thefts
+  scale_fill_manual(name = "Premise Type", values = custom_colors) +
+  coord_flip() +  # Flip the axes for better readability of neighborhood names
+  labs(
+    title = "Top 10 Neighborhoods: Bike Thefts by Premise",
+    x = "Neighborhood",
+    y = "",
+    fill = "Premise Type"
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),  # Remove grid lines for a cleaner look
+    axis.text.x = element_text(angle = 30, hjust = 1, size=8),  # Rotate x-axis labels if needed
+    legend.position = "bottom"  # Place the legend at the bottom
+  )
+```
+
+This section focuses on 2023 because the bike parking location data I obtained is from 2023. Bike parking locations in 2023 may not have existed back in 2014.
+
+5 most affected neighborhoods and premises where bikes were stolen from in 2023
+
+North York, near Yonge and Finch, saw a high concentration of bike thefts in 2023. This is particularly concerning because the bike parking facility data obtained from Open Data Toronto shows no City of Toronto bike parking facilities in that area or at that intersection. This indicates that cyclists who live in the neighbourhoods surrounding Yonge Street in North York may be at a higher risk of having their bikes stolen. If you are a cyclist who lives in North York near Yonge Street and you leave your bike outside at any time of day, it might be a good idea to invest in an effective bike lock.
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+library(plotly)
+
+bike_thefts_2023 <- bike_thefts_sf |>
+  filter(OCC_YEAR == 2023 & LONG_WGS84 < -79 & LAT_WGS84 > 40)
+  # filter(OCC_YEAR >= 2014 & OCC_YEAR <= 2023 & LONG_WGS84 < -79 & LAT_WGS84 > 40)
+  
+
+bike_sf <- st_as_sf(bike_thefts_2023, coords = c("LONG_WGS84", "LAT_WGS84"), crs = 4326)
+
+bike_sf$NEIGHBOURHOOD_158 <- gsub("\\s*\\(.*\\)", "", bike_sf$NEIGHBOURHOOD_158)
+
+
+toronto_neighbourhoods_shp2 <- toronto_neighbourhoods_shp 
+
+toronto_neighbourhoods_shp2$AREA_DE8 <- gsub("\\s*\\(.*\\)", "", toronto_neighbourhoods_shp$AREA_DE8)
+
+theft_map <- ggplot()+
+    geom_sf(data = toronto_neighbourhoods_shp2, 
+            aes(text = paste(AREA_DE8)),
+            fill = "lightgray", 
+            color = "black", 
+            size = 0.3, alpha=0.3)  +
+    geom_sf(data = bike_sf, 
+            aes(text = paste(NEIGHBOURHOOD_158)),
+            color = "#980043", 
+            size = 1.5, 
+            alpha = 0.2) +
+    theme_minimal() +
+      theme(
+      panel.grid = element_blank(),  # Remove grid lines
+      panel.background = element_blank(),
+      axis.text = element_blank(),  # Remove axis text
+      axis.ticks = element_blank(),  # Remove axis ticks
+      axis.title = element_blank()
+    ) +
+    ggtitle("Toronto Bike Theft Locations 2023")
+
+ggplotly(theft_map, tooltip="text") %>%
+   layout(
+    hoverlabel = list(
+      bgcolor = "lightgray",  # White background
+      font = list(color = "black")  # Black text for contrast
+    )
+  )
+```
+
+```{r}
+leaflet() %>%
+  # addProviderTiles("OpenStreetMap") %>%
+  addProviderTiles('CartoDB.Positron') %>%
+  addPolygons(data = toronto_neighbourhoods_shp, weight = 1, color = "gray", fillOpacity = 0.2) %>%
+  addCircleMarkers(data = bike_sf, radius = 0.5, color = "#980043", fillColor = "#980043", popup = ~NEIGHBOURHOOD_140) %>%
+  addLegend(position = "bottomright", colors = "#980043", labels = "Bike Theft")
+
+```
+
 ```{r}
 # join the geo json data with the neighborhood 4326 shape file
 # 
-ggplot() +
-  # Add neighborhood polygons
-  geom_sf(data = toronto_neighbourhoods_shp, fill = "lightgray", color = "black", size = 0.3, alpha = 0.3) +
-  # Add bike parking locations
-  geom_sf(data = bike_parking_sf, color = "steelblue", size = sqrt(bike_parking_sf$BICYCLE_CAPACITY), alpha = 0.4) +
-  # Set a minimal theme
-  theme_minimal() +
-    theme(
-    panel.grid = element_blank(),  # Remove grid lines
-    panel.background = element_blank(),
-    axis.text = element_blank(),  # Remove axis text
-    axis.ticks = element_blank(),  # Remove axis ticks
-    axis.title = element_blank() 
-  ) +
-  # Optionally set a title
-  ggtitle("City of Toronto Designated Bike Parking Locations")
+
+bike_parking_capacity <- bike_parking_sf |> 
+  filter(!is.na(BICYCLE_CAPACITY) & BICYCLE_CAPACITY > 0)
+
+bike_parking_capacity$BICYCLE_CAPACITY <- as.numeric(bike_parking_capacity$BICYCLE_CAPACITY)
+  
+parking_map <- ggplot() +
+    # Add neighborhood polygons
+    geom_sf(data = toronto_neighbourhoods_shp2,
+            aes(text = paste(AREA_DE8)),
+            fill = "lightgray", 
+            color = "black", 
+            size = 0.3, 
+            alpha = 0.3) +
+    # Add bike parking locations
+    geom_sf(data = bike_parking_capacity, color = "steelblue", size = sqrt(bike_parking_capacity$BICYCLE_CAPACITY), alpha = 0.4) +
+    # Set a minimal theme
+    theme_minimal() +
+      theme(
+      panel.grid = element_blank(),  # Remove grid lines
+      panel.background = element_blank(),
+      axis.text = element_blank(),  # Remove axis text
+      axis.ticks = element_blank(),  # Remove axis ticks
+      axis.title = element_blank(),
+      legend.title = element_text(size = 12),  # Customize legend title size
+      legend.text = element_text(size = 10),   # Customize legend text size
+      legend.position = "bottom"  # Position legend at the bottom
+    ) +
+    # Optionally set a title
+      scale_size_continuous(
+      name = "Bicycle Capacity",  # Legend title
+      range = c(1, 15),  # Adjust the point size range as needed
+      breaks = c(5, 10, 20, 40, 60, 80, 100, 120),  # Adjust breaks to match your data range
+      labels = c("5", "10", "20", "40", "60", "80", "100", "120")
+    )  +
+    ggtitle("City of Toronto Designated Bike Parking Locations") 
+
+ggplotly(parking_map, tooltip="text") %>%
+   layout(
+    hoverlabel = list(
+      bgcolor = "lightgray",  
+      font = list(color = "black") 
+    )
+  )
 ```
 
 ```{r, include=TRUE, echo=FALSE, warning=FALSE, message=FALSE}
@@ -248,7 +450,7 @@ bike_parking_df <- bike_parking_sf %>%
   bind_cols(bike_parking_sf)  # Combine the coordinates with the original data
 
 # Plot the map with bike parking location dots
-leaflet(police_divisions_shp) %>%
+leaflet(toronto_neighbourhoods_shp) %>%
   addProviderTiles('CartoDB.Positron') %>%
   # Add the neighborhood polygons
   addPolygons(weight = 1.2, fillOpacity = 0.1, color = "gray") %>%
@@ -262,28 +464,21 @@ leaflet(police_divisions_shp) %>%
     fillOpacity = 0.7,  # Opacity of the fill,
     stroke = FALSE  # No border for the dots
     # Replace with the correct attribute
-  )
+  ) %>%
+  addLegend(position = "bottomright", colors = "steelblue", labels = "City of Toronto Bike Parking Facility")
 
-```
-
-```{r}
-ggplot() +
-  # Add neighborhood polygons
-  geom_sf(data = toronto_neighbourhoods_shp, fill = "gray", color = "black", size = 0.3, alpha = 0.3) +
-  # # Add bike parking locations
-  # geom_sf(data = bike_thefts_sf, color = "pink", size = 2, alpha = 0.3) +
-  # Set a minimal theme
-  theme_minimal() +
-  # Optionally set a title
-  ggtitle("Toronto Neighborhoods and Bike Theft Locations Locations")
 ```
 
 ## Premises
 
 ## Timing
 
-# Trends in Areas with Most Bike Thefts
+# What does this mean for Toronto cyclists?
 
-# Risks and Conclusions
+## Most areas have high numbers of bike thefts due to high cyclist volume
 
-type here
+## If you live, study, or teach in the University neighbourhood, consider double-locking your bike
+
+## North York is a quiet hot spot
+
+## Why the focus on neighbourhoods?
