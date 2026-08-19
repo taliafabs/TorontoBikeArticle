@@ -5,5 +5,6 @@ It can be viewed using this link:
 ## Data
 The data was obtained from `OpenDataTO`
 
-## Skills
+## Skills & Tools
 * R and R Studio of data transformation & analysis
+* Git/Github for version control
