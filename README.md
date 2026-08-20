@@ -7,4 +7,5 @@ The data was obtained from `OpenDataTO`
 
 ## Skills & Tools
 * R and R Studio of data transformation & analysis
+* `ggplot`, `plotly`, and `sf` for visualizations
 * Git/Github for version control
